@@ -36,6 +36,7 @@ if (!empty($_SESSION['user_session'])) {
     if (!empty($_SESSION['user_admin']) && $_SESSION['user_admin']==1) {
         $admin = true;
     }
+
     $error = array('type' => "none", 'message' => "");
     $client = new Client($rpc_host, $rpc_port, $rpc_user, $rpc_pass);
     $admin_action = false;
