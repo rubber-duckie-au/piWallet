@@ -1,8 +1,31 @@
 <?php
 define("IN_WALLET", true);
-require_once "classes/recaptchalib.php";
 include('common.php');
 
+	$modalfirst = '<style>.modal-backdrop {z-index: -1;}</style>
+  <script src="assets/js/core/jquery.min.js" type="text/javascript"></script>
+  <script src="assets/js/core/popper.min.js" type="text/javascript"></script>
+  <script src="assets/js/core/bootstrap.min.js" type="text/javascript"></script>
+<script type="text/javascript">$(window).on("load",function(){$("#errorModal").modal("show");});</script>
+<div class="modal fade" id="errorModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" style="display: none;" aria-hidden="true">
+		<div class="modal-dialog">
+			<div class="modal-content">
+				<div class="modal-header justify-content-center">
+					<button type="button" class="close" data-dismiss="modal" aria-hidden="true">
+						<i class="now-ui-icons ui-1_simple-remove"></i>
+					</button>
+					<h4 class="title title-up" style="padding:0;">Info</h4>
+				</div>
+				<div class="modal-body">';
+	$modalsecond = '				</div>
+				<div class="modal-footer">
+					<button type="button" class="btn btn-default" data-dismiss="modal">Back</button>
+					<button type="button" class="btn btn-danger" data-dismiss="modal">Close</button>
+				</div>
+			</div>
+		</div>
+	</div>
+    </div>';
 $mysqli = new Mysqli($db_host, $db_user, $db_pass, $db_name);
 if (!empty($_SESSION['user_session'])) {
     if(empty($_SESSION['token'])) {
@@ -22,25 +45,25 @@ if (!empty($_SESSION['user_session'])) {
     if (!$admin_action) {
         $noresbal = $client->getBalance($user_session);
         $resbalance = $client->getBalance($user_session) - $reserve;
-    if ($resbalance < 0) {
-        $balance = $noresbal; //Don't show the user a negitive balance if they have no coins with us
-    } else {
-        $balance = $resbalance;
-    }
-    if (!empty($_POST['jsaction'])) {
+	if ($resbalance < 0) {
+		$balance = $noresbal; //Don't show the user a negitive balance if they have no coins with us
+	} else {
+		$balance = $resbalance;
+	}
+	if (!empty($_POST['jsaction'])) {
             $json = array();
             switch ($_POST['jsaction']) {
                 case "new_address":
                 $client->getnewaddress($user_session);
                 $json['success'] = true;
                 $json['message'] = "A new address was added to your wallet";
-        $jsonbal = $client->getBalance($user_session);
-        $jsonbalreserve = $client->getBalance($user_session) - $reserve;
+		$jsonbal = $client->getBalance($user_session);
+		$jsonbalreserve = $client->getBalance($user_session) - $reserve;
                 if ($jsonbalreserve < 0) {
-            $json['balance'] = $jsonbal; 
-        } else {
-            $json['balance'] = $jsonbalreserve; }
-        $json['balance'] = $jsonbal;
+			$json['balance'] = $jsonbal; 
+		} else {
+			$json['balance'] = $jsonbalreserve; }
+		$json['balance'] = $jsonbal;
                 $json['addressList'] = $client->getAddressList($user_session);
                 $json['transactionList'] = $client->getTransactionList($user_session);
                 echo json_encode($json); exit;
@@ -145,20 +168,26 @@ if (!empty($_SESSION['user_session'])) {
                 break;
                 case "support":
                 $error['message'] = "Please contact support via email at $support";
+		echo $modalfirst;
                 echo "Support Key: ";
                 echo $_SESSION['user_supportpin'];
+		echo $modalsecond;
                 break;
                 case "authgen":
                 $user = new User($mysqli);
                 $secret = $user->createSecret();
                 $gen=$user->enableauth();
-                echo $gen;
+		echo $modalfirst;
+                echo "<h3 style='color:red;text-align:center;margin:0;'>Important!</h3><p style='color:red;'>If you do not scan, you need to <b>Disable</b> 2F Auth!</p>" . $gen;
+		echo $modalsecond;
                 break;
                 
                 case "disauth":
                 $user = new User($mysqli);
                 $disauth=$user->disauth();
+		echo $modalfirst;
                 echo $disauth;
+		echo $modalsecond;
                 break;
             }
         }
@@ -306,11 +335,9 @@ if (!empty($_SESSION['user_session'])) {
     }
 } else {
     $error = array('type' => "none", 'message' => "");
-    // verificar a chave secreta
-    $response = null;
-    $reCaptcha = new ReCaptcha($secret);
-    $response = $reCaptcha->verifyResponse($_SERVER["REMOTE_ADDR"], $_POST["g-recaptcha-response"]);
-    if ($response != null && $response->success) {
+    if (!empty($_POST['action'])) {
+//	  require_once "classes/recaptchalib.php";
+	  $privatekey = "6LdAUnIUAAAAAAGBh18wU2yviS6NTjOTOyDn8g-B";
 
         $username;$password;$auth;$captcha;
         if(isset($_POST['username']))
@@ -321,42 +348,53 @@ if (!empty($_SESSION['user_session'])) {
           $auth=$_POST['auth'];
         if(isset($_POST['g-recaptcha-response']))
           $captcha=$_POST['g-recaptcha-response'];
-
-        // Code here to handle a successful verification
-            $error = array('type' => "none", 'message' => "");
-            $user = new User($mysqli);
-            switch ($_POST['action']) {
-                case "login":
-                $result = $user->logIn($_POST['username'], $_POST['password'], $_POST['auth']);
-                if (!is_array($result)) {
-                    $error['type'] = "login";
-                    $error['message'] = $result;
-                } else {
-                    $_SESSION['user_session'] = $result['username'];
-                    $_SESSION['user_admin'] = $result['admin'];
-                    $_SESSION['user_supportpin'] = $result['supportpin'];
-                    $_SESSION['user_id'] = $result['id'];
+/*
+        if(!$captcha){
+                echo '<h2>Please check the the captcha form.</h2>';
+        }
+*/
+        $response=json_decode(file_get_contents("https://www.google.com/recaptcha/api/siteverify?secret=".$privatekey."&response=".$captcha."&remoteip=".$_SERVER['REMOTE_ADDR']), true);
+        if($response['success'] == false)
+        {
+          echo '<style>.modal-backdrop.show {z-index: -1;}</style>
+  <script src="assets/js/core/jquery.min.js" type="text/javascript"></script>
+  <script src="assets/js/core/popper.min.js" type="text/javascript"></script>
+  <script src="assets/js/core/bootstrap.min.js" type="text/javascript"></script>
+<script type="text/javascript">$(window).on("load",function(){$("#captchaModal").modal("show");});</script>';
+        }
+        else
+        {
+    // Code here to handle a successful verification
+        $user = new User($mysqli);
+        switch ($_POST['action']) {
+            case "login":
+            $result = $user->logIn($_POST['username'], $_POST['password'], $_POST['auth']);
+            if (!is_array($result)) {
+                $error['type'] = "login";
+                $error['message'] = $result;
+            } else {
+                $_SESSION['user_session'] = $result['username'];
+                $_SESSION['user_admin'] = $result['admin'];
+                $_SESSION['user_supportpin'] = $result['supportpin'];
+                $_SESSION['user_id'] = $result['id'];
+                header("Location: index.php");
+            }
+            break;
+            case "register":
+            $result = $user->add($_POST['username'], $_POST['password'], $_POST['confirmPassword']);
+            if ($result !== true) {
+                $error['type'] = "register";
+                $error['message'] = $result;
+            } else {
+                $username   = $mysqli->real_escape_string(   strip_tags(          $_POST['username']   ));
+                $_SESSION['user_session'] = $username;
+                $_SESSION['user_supportpin'] = "Please relogin for Support Key";
                     header("Location: index.php");
-                }
-                break;
-                case "register":
-                $result = $user->add($_POST['username'], $_POST['password'], $_POST['confirmPassword']);
-                if ($result !== true) {
-                    $error['type'] = "register";
-                    $error['message'] = $result;
-                } else {
-                    $username   = $mysqli->real_escape_string(   strip_tags(          $_POST['username']   ));
-                    $_SESSION['user_session'] = $username;
-                    $_SESSION['user_supportpin'] = "Please relogin for Support Key";
-                    header("Location: index.php");
-                }
-
+            }
             break;
         }
-        }
-        else {
-              //insert error messenge here
-              }
+	}
+    }
     include("view/header.php");
     include("view/home.php");
     include("view/footer.php");
